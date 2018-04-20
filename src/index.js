@@ -28,7 +28,7 @@ const fragmentshaderEvolve = `
 
   vec4 is_livev(sampler2D texture, vec2 texcoord) {
     if (is_live(texture, texcoord)) {
-      return vec4(texture2D(texture,texcoord).rgb/3.,1.);
+      return vec4(texture2D(texture,texcoord).rgb/3. + vec3(.00008),1.);
     }
     return vec4(0.);
   }
