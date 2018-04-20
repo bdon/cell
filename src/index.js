@@ -11,7 +11,7 @@ const fragmentshaderDisplay = `
   varying vec2 v_texcoord;
   uniform sampler2D u_texture;
   void main() {
-    gl_FragColor = texture2D(u_texture, v_texcoord);
+    gl_FragColor = vec4(texture2D(u_texture, v_texcoord).rgb, 1.);
   }`
 
 const fragmentshaderEvolve = `
@@ -19,42 +19,45 @@ const fragmentshaderEvolve = `
   uniform sampler2D u_texture;
 
   bool eq(float a, float b) {
-    return abs(a - b) < 0.01;
+    return abs(a - b) < 0.001;
   }
 
   bool is_live(sampler2D texture, vec2 texcoord) {
-    return eq(texture2D(texture, texcoord).r, 1.);
+    return eq(texture2D(texture, texcoord).a, 1.);
   }
 
-  float is_livef(sampler2D texture, vec2 texcoord) {
+  vec4 is_livev(sampler2D texture, vec2 texcoord) {
     if (is_live(texture, texcoord)) {
-      return 1.;
+      return vec4(texture2D(texture,texcoord).rgb/3.,1.);
     }
-    return 0.;
+    return vec4(0.);
   }
 
   void main() {
     float x = v_texcoord.x;
     float y = v_texcoord.y;
-    float c0 = is_livef(u_texture, vec2(x-1./255.,y-1./255.));
-    float c1 = is_livef(u_texture, vec2(x-1./255.,y-0./255.));
-    float c2 = is_livef(u_texture, vec2(x-1./255.,y+1./255.));
-    float c3 = is_livef(u_texture, vec2(x-0./255.,y+1./255.));
-    float c4 = is_livef(u_texture, vec2(x+1./255.,y+1./255.));
-    float c5 = is_livef(u_texture, vec2(x+1./255.,y-0./255.));
-    float c6 = is_livef(u_texture, vec2(x+1./255.,y-1./255.));
-    float c7 = is_livef(u_texture, vec2(x-0./255.,y-1./255.));
+    vec4 c0 = is_livev(u_texture, vec2(x-1./255.,y-1./255.));
+    vec4 c1 = is_livev(u_texture, vec2(x-1./255.,y-0./255.));
+    vec4 c2 = is_livev(u_texture, vec2(x-1./255.,y+1./255.));
+    vec4 c3 = is_livev(u_texture, vec2(x-0./255.,y+1./255.));
+    vec4 c4 = is_livev(u_texture, vec2(x+1./255.,y+1./255.));
+    vec4 c5 = is_livev(u_texture, vec2(x+1./255.,y-0./255.));
+    vec4 c6 = is_livev(u_texture, vec2(x+1./255.,y-1./255.));
+    vec4 c7 = is_livev(u_texture, vec2(x-0./255.,y-1./255.));
     vec4 me = texture2D(u_texture, v_texcoord);
     bool live = is_live(u_texture, v_texcoord);
-    float num = c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7;
+    vec4 liveNeighbors = c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7;
+    float num = liveNeighbors.a;
     if (live  && (num < 2. || num > 3.)) {
-      gl_FragColor = vec4(0.0,me.g,me.b,1.);
+      gl_FragColor = vec4(me.rgb,0.);
     }
     else if (!live && eq(num,3.)) {
-      gl_FragColor = vec4(1.,1.,1.,1.);
+      gl_FragColor = vec4(liveNeighbors.rgb,1.);
     } 
-    else {
-      gl_FragColor = vec4(me.r, me.g-0.1, me.b-0.1, 1.);
+    else if (live) {
+      gl_FragColor = vec4(me);
+    } else {
+      gl_FragColor = vec4(me) - vec4(0.005);
     }
   }
 `
@@ -116,7 +119,7 @@ window.requestAnimationFrame = window.requestAnimationFrame || ( function() {
 	        }
 })()
 
-const SIZE = 128;
+const SIZE = 256;
 var canvas, gl
 var programDisplay, programEvolve
 var textureFront, textureBack
@@ -130,10 +133,10 @@ function init() {
   const arr = []
   for (var i = 0; i < SIZE; i++) {
     for (var j = 0; j < SIZE; j++) {
-      arr.push(Math.random() > 0.5 ? 255 : 0)
       arr.push(Math.random() * 255)
       arr.push(Math.random() * 255)
-      arr.push(255)
+      arr.push(Math.random() * 255)
+      arr.push(Math.random() > 0.5 ? 255 : 254)
     }
   }
   const data = new Uint8Array(arr)
@@ -143,16 +146,16 @@ function init() {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIZE, SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
 
   textureBack = gl.createTexture()
   gl.bindTexture(gl.TEXTURE_2D, textureBack)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIZE, SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
 
   framebuffer = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
@@ -196,7 +199,6 @@ function animate() {
 }
 
 function render(program, texture) {
-  gl.clear( gl.COLOR_BUFFER_BIT )
   gl.useProgram( program.program )
   gl.uniform1i(program.u.u_texture, 0)
   gl.activeTexture(gl.TEXTURE0)
