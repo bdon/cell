@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "webpack": "^4.6.0"
+  },
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "serve": "http-server dist"
+  },
+  "devDependencies": {
+    "webpack-cli": "^2.0.14"
+  }
+}
