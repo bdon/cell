@@ -5,41 +5,36 @@ const vertexshader = `
   void main() {
     gl_Position = vec4(a_position,0.,1.);
     v_texcoord = a_texcoord;
-  }
-`
+  }`
+
 const fragmentshaderDisplay = `
   varying vec2 v_texcoord;
   uniform sampler2D u_texture;
   void main() {
     gl_FragColor = texture2D(u_texture, v_texcoord);
-  }
-`
+  }`
 
 const fragmentshaderEvolve = `
   varying vec2 v_texcoord;
   uniform sampler2D u_texture;
   void main() {
-    // 2 3 4
-    // 1   5
-    // 0 7 6
-    float c0 = texture2D(u_texture, vec2(v_texcoord.x-1./255.,v_texcoord.y-1./255.)).a;
-    float c1 = texture2D(u_texture, vec2(v_texcoord.x-1./255.,v_texcoord.y-0./255.)).a;
-    float c2 = texture2D(u_texture, vec2(v_texcoord.x-1./255.,v_texcoord.y+1./255.)).a;
-    float c3 = texture2D(u_texture, vec2(v_texcoord.x-0./255.,v_texcoord.y+1./255.)).a;
-    float c4 = texture2D(u_texture, vec2(v_texcoord.x+1./255.,v_texcoord.y+1./255.)).a;
-    float c5 = texture2D(u_texture, vec2(v_texcoord.x+1./255.,v_texcoord.y-0./255.)).a;
-    float c6 = texture2D(u_texture, vec2(v_texcoord.x+1./255.,v_texcoord.y-1./255.)).a;
-    float c7 = texture2D(u_texture, vec2(v_texcoord.x-0./255.,v_texcoord.y-1./255.)).a;
+    float x = v_texcoord.x;
+    float y = v_texcoord.y;
+    float c0 = texture2D(u_texture, vec2(x-1./255.,y-1./255.)).a;
+    float c1 = texture2D(u_texture, vec2(x-1./255.,y-0./255.)).a;
+    float c2 = texture2D(u_texture, vec2(x-1./255.,y+1./255.)).a;
+    float c3 = texture2D(u_texture, vec2(x-0./255.,y+1./255.)).a;
+    float c4 = texture2D(u_texture, vec2(x+1./255.,y+1./255.)).a;
+    float c5 = texture2D(u_texture, vec2(x+1./255.,y-0./255.)).a;
+    float c6 = texture2D(u_texture, vec2(x+1./255.,y-1./255.)).a;
+    float c7 = texture2D(u_texture, vec2(x-0./255.,y-1./255.)).a;
+    bool live = abs(texture2D(u_texture, v_texcoord).a - 1.) < 0.01;
     float num = c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7;
-    float live = texture2D(u_texture, v_texcoord).a;
-    if (abs(live - 1.) < 0.01 && num < 2.) {
+    if (live  && (num < 2. || num > 3.)) {
       gl_FragColor = vec4(1.,1.,1.,0.);
     }
-    else if (abs(live - 1.) < 0.01 && num > 3.) {
-      gl_FragColor = vec4(1.,1.,1.,0.);
-    }
-    else if (abs(live) < 0.01 && abs(num - 3.) < 0.01) {
-      gl_FragColor = vec4(1.,0.,1.,1.);
+    else if (!live && abs(num - 3.) < 0.01) {
+      gl_FragColor = vec4(0.,0.,0.,1.);
     } 
     else {
       gl_FragColor =  texture2D(u_texture, v_texcoord);
@@ -108,7 +103,6 @@ var canvas, gl
 var programDisplay, programEvolve
 var textureFront, textureBack
 var framebuffer, attachmentPoint
-var frameNum = 0
 
 function init() {
   canvas = document.querySelector( 'canvas' )
@@ -118,9 +112,9 @@ function init() {
   var arr = []
   for (var i = 0; i < 512; i++) {
     for (var j = 0; j < 512; j++) {
-      arr.push(Math.random() > 0.5 ? 255 : 0)
-      arr.push(Math.random() > 0.5 ? 255 : 0)
-      arr.push(Math.random() > 0.5 ? 255 : 0)
+      arr.push(0)
+      arr.push(0)
+      arr.push(0)
       arr.push(Math.random() > 0.5 ? 255 : 0)
     }
   }
@@ -169,7 +163,6 @@ function init() {
 }
 
 function animate() {
-  frameNum++
   resizeCanvas()
   var tmp = textureFront
   textureFront = textureBack
@@ -177,16 +170,10 @@ function animate() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 	gl.viewport( 0, 0, canvas.width, canvas.height )
   render(programDisplay, textureFront)
-
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureFront, 0)
   gl.viewport(0, 0, 512, 512)
-  var prog = programDisplay
-  //if (frameNum % 10 == 0) {
-  //  prog = programEvolve
-  //}
-  var prog = programEvolve
-  render(prog, textureBack)
+  render(programEvolve, textureBack)
   requestAnimationFrame( animate )
 }
 
