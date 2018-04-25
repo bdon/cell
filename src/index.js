@@ -17,6 +17,7 @@ const fragmentshaderDisplay = `
 const fragmentshaderEvolve = `
   varying vec2 v_texcoord;
   uniform sampler2D u_texture;
+  uniform float u_resolution;
 
   bool eq(float a, float b) {
     return abs(a - b) < 0.001;
@@ -36,14 +37,15 @@ const fragmentshaderEvolve = `
   void main() {
     float x = v_texcoord.x;
     float y = v_texcoord.y;
-    vec4 c0 = is_livev(u_texture, vec2(x-1./255.,y-1./255.));
-    vec4 c1 = is_livev(u_texture, vec2(x-1./255.,y-0./255.));
-    vec4 c2 = is_livev(u_texture, vec2(x-1./255.,y+1./255.));
-    vec4 c3 = is_livev(u_texture, vec2(x-0./255.,y+1./255.));
-    vec4 c4 = is_livev(u_texture, vec2(x+1./255.,y+1./255.));
-    vec4 c5 = is_livev(u_texture, vec2(x+1./255.,y-0./255.));
-    vec4 c6 = is_livev(u_texture, vec2(x+1./255.,y-1./255.));
-    vec4 c7 = is_livev(u_texture, vec2(x-0./255.,y-1./255.));
+    float f = u_resolution - 1.;
+    vec4 c0 = is_livev(u_texture, vec2(x-1./f,y-1./f));
+    vec4 c1 = is_livev(u_texture, vec2(x-1./f,y-0./f));
+    vec4 c2 = is_livev(u_texture, vec2(x-1./f,y+1./f));
+    vec4 c3 = is_livev(u_texture, vec2(x-0./f,y+1./f));
+    vec4 c4 = is_livev(u_texture, vec2(x+1./f,y+1./f));
+    vec4 c5 = is_livev(u_texture, vec2(x+1./f,y-0./f));
+    vec4 c6 = is_livev(u_texture, vec2(x+1./f,y-1./f));
+    vec4 c7 = is_livev(u_texture, vec2(x-0./f,y-1./f));
     vec4 me = texture2D(u_texture, v_texcoord);
     bool live = is_live(u_texture, v_texcoord);
     vec4 liveNeighbors = c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7;
@@ -119,7 +121,7 @@ window.requestAnimationFrame = window.requestAnimationFrame || ( function() {
 	        }
 })()
 
-const SIZE = 256;
+const SIZE = 1024;
 var canvas, gl
 var programDisplay, programEvolve
 var textureFront, textureBack
@@ -171,7 +173,7 @@ function init() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, programDisplay.buffer.index)
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0,2,1,1,2,3]), gl.STATIC_DRAW)
 
-  programEvolve = new ShaderProgram(gl, vertexshader, fragmentshaderEvolve, ['a_position','a_texcoord'], ['u_texture'] )
+  programEvolve = new ShaderProgram(gl, vertexshader, fragmentshaderEvolve, ['a_position','a_texcoord'], ['u_texture','u_resolution'] )
   programEvolve.buffer.a_position = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER,programEvolve.buffer.a_position)
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW)
@@ -201,6 +203,7 @@ function animate() {
 function render(program, texture) {
   gl.useProgram( program.program )
   gl.uniform1i(program.u.u_texture, 0)
+  gl.uniform1f(program.u.u_resolution, SIZE)
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, texture)
   gl.enableVertexAttribArray(program.a.a_position)
